@@ -1,9 +1,17 @@
 from flask import Flask, request, jsonify, Response
 import build_model
 import json
+import csv
 
 
 app = Flask(__name__)
+
+# Load once saat startup
+
+with open('./resources/doa.csv', 'r', encoding='utf-8') as f:
+    reader = csv.DictReader(f)
+    doa_data = list(reader)
+
 
 # disable CORS for all routes
 
@@ -15,6 +23,7 @@ def after_request(response):
     response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     return response
 
+
 @app.route("/recommendation", methods=["POST"])
 def recommendation():
     data = request.get_json()
@@ -25,7 +34,7 @@ def recommendation():
 
     # Gabungkan semua query menjadi satu kalimat panjang
     combined_query = " ".join(queries)
-    
+
     # Gunakan semantic_search untuk mencari ayat mirip query gabungan
     results = build_model.semantic_search(combined_query, top_n=10)
 
@@ -41,7 +50,7 @@ def semantic_search_route():
         return {"error": "Query parameter is required"}, 400
     if len(query) < 3:
         return {"error": "Query must be at least 3 characters long"}, 400
-    results = build_model.search_by_query(query)
+    results = build_model.semantic_search(query, top_n=1000)
     return {"results": results.to_dict(orient="records")}
 
 
@@ -67,3 +76,29 @@ def surah_detail(surah_number):
         indent=2
     )
     return Response(json_data, mimetype='application/json; charset=utf-8')
+
+
+@app.route("/tema_rekomendasi_doa")
+def tema_rekomendasi_doa():
+    tema_set = sorted({item["tema"] for item in doa_data})
+    return jsonify({
+        "status": "success",
+        "tema": tema_set
+    })
+
+
+@app.route("/rekomendasi_doa/<tema>")
+def rekomendasi_doa(tema):
+    filtered = [item for item in doa_data if item["tema"].lower() ==
+                tema.lower()]
+    if not filtered:
+        return jsonify({
+            "status": "not_found",
+            "message": f"Tema '{tema}' tidak ditemukan.",
+            "data": []
+        }), 404
+    return jsonify({
+        "status": "success",
+        "jumlah": len(filtered),
+        "data": filtered
+    })
