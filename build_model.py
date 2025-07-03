@@ -49,7 +49,7 @@ def semantic_search(query, top_n=10):
 #     similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
 #     top_indices = similarity.argsort()[-top_n:][::-1]
 
-#     result = df.loc[top_indices, ['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain', 'Tafsir_Mukhtasar']].copy()
+#     result = df.loc[top_indices, ['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain']].copy()
 #     result['similarity'] = similarity[top_indices]
     
 #     return result
@@ -68,6 +68,6 @@ def get_surah_detail(surah_number):
     """Mengambil detail surah berdasarkan nomor surah."""
     surah_detail = df[df['Surah'] == surah_number]
     if not surah_detail.empty:
-        return surah_detail[['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain', 'Tafsir_Mukhtasar']]
+        return surah_detail[['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain']]
     else:
-        return pd.DataFrame(columns=['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain', 'Tafsir_Mukhtasar'])
+        return pd.DataFrame(columns=['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain'])
