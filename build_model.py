@@ -1,18 +1,21 @@
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer, util
+import torch
 
-df = pd.read_csv("resources/df_quran_with_entities.csv")
 
-# Pastikan kolom bersih dan tidak kosong
-df['Isi_Bersih'] = df['Isi_Bersih'].fillna("")
+# Load dataframe
+df = pd.read_pickle("resources/tafsir_dataset.pkl")
 
-# Fit TF-IDF ke seluruh tafsir
-vectorizer = TfidfVectorizer()
-tfidf_matrix = vectorizer.fit_transform(df['Isi_Bersih'])
+try:
+    print("🔄 Loading corpus embeddings...")
+    corpus_embeddings = torch.load("resources/corpus_embeddings.pt")
+    print("✅ Embeddings loaded:", corpus_embeddings.shape)
+except Exception as e:
+    print("❌ Gagal load embeddings:", e)
+    corpus_embeddings = None  # biar gak crash seluruh server
 
-# Fungsi untuk melakukan pencarian semantik
-
+# Load model SBERT Multilingual
+model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
 
 def get_recommendation_from_history(history_list, top_n=10):
     if not history_list:
@@ -25,21 +28,31 @@ def get_recommendation_from_history(history_list, top_n=10):
 def search_by_query(query):
     """Melakukan pencarian berdasarkan query."""
     if not query or len(query) < 3:
-        return pd.DataFrame(columns=['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain', 'Tafsir_Mukhtasar'])
+        return pd.DataFrame(columns=['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain'])
 
     # match terjemahan yang mengandung query
     return df[df['Terjemahan'].str.contains(query, case=False, na=False)]
 
-
 def semantic_search(query, top_n=10):
-    query_vec = vectorizer.transform([query])
-    similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
-    top_indices = similarity.argsort()[-top_n:][::-1]
+    query_embedding = model.encode(query, convert_to_tensor=True).cpu()  # Force ke CPU
+    corpus_cpu = corpus_embeddings.cpu()  # pastikan ini juga di CPU
 
-    result = df.loc[top_indices, ['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain', 'Tafsir_Mukhtasar']].copy()
-    result['similarity'] = similarity[top_indices]
+    cosine_scores = util.cos_sim(query_embedding, corpus_cpu)[0]
+    top_results = torch.topk(cosine_scores, k=top_n)
+
+    hasil = df.iloc[top_results[1].numpy()].copy()
+    hasil['similarity'] = top_results[0].numpy()
+    return hasil
+
+# def semantic_search(query, top_n=10):
+#     query_vec = vectorizer.transform([query])
+#     similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
+#     top_indices = similarity.argsort()[-top_n:][::-1]
+
+#     result = df.loc[top_indices, ['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain', 'Tafsir_Mukhtasar']].copy()
+#     result['similarity'] = similarity[top_indices]
     
-    return result
+#     return result
 
 
 # Fungsi untuk mengambil daftar surah dan nama surah
