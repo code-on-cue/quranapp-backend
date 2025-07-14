@@ -15,7 +15,9 @@ except Exception as e:
     corpus_embeddings = None  # biar gak crash seluruh server
 
 # Load model SBERT Multilingual
-model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+model = SentenceTransformer(
+    'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+
 
 def get_recommendation_from_history(history_list, top_n=10):
     if not history_list:
@@ -33,8 +35,9 @@ def search_by_query(query):
     # match terjemahan yang mengandung query
     return df[df['Terjemahan'].str.contains(query, case=False, na=False)]
 
-def semantic_search(query, top_n=10):
-    query_embedding = model.encode(query, convert_to_tensor=True).cpu()  # Force ke CPU
+def semantic_search(query, top_n=10, min_score=0.5):
+    query_embedding = model.encode(
+        query, convert_to_tensor=True).cpu()  # Force ke CPU
     corpus_cpu = corpus_embeddings.cpu()  # pastikan ini juga di CPU
 
     cosine_scores = util.cos_sim(query_embedding, corpus_cpu)[0]
@@ -42,6 +45,18 @@ def semantic_search(query, top_n=10):
 
     hasil = df.iloc[top_results[1].numpy()].copy()
     hasil['similarity'] = top_results[0].numpy()
+
+    # Filter yang di bawah threshold
+    hasil = hasil[hasil['similarity'] >= min_score]
+
+    # Post-filter: cek keyword ada di teks
+    dup_hasil = hasil.copy()
+    hasil = hasil[hasil['Terjemahan'].str.contains(query, case=False, na=False) |
+                  hasil['Tafsir_Jalalain'].str.contains(query, case=False, na=False)]
+
+    if hasil.empty:
+        return dup_hasil
+
     return hasil
 
 # def semantic_search(query, top_n=10):
@@ -51,7 +66,7 @@ def semantic_search(query, top_n=10):
 
 #     result = df.loc[top_indices, ['Surah', 'Nama_Surah_Indo', 'Ayat', 'Teks_Arab', 'Terjemahan', 'Tafsir_Jalalain']].copy()
 #     result['similarity'] = similarity[top_indices]
-    
+
 #     return result
 
 
